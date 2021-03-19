@@ -1,0 +1,23 @@
+{
+  "name": "briz-coin",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "rimraf ./dist/ && tsc",
+    "start": "node ./dist/main.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "rimraf": "^3.0.2",
+    "typescript": "^4.2.3"
+  },
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "crypto-js": "^4.0.0",
+    "express": "^4.17.1",
+    "uninstall": "0.0.0",
+    "ws": "^7.4.4"
+  }
+}
