@@ -32,6 +32,16 @@ const initP2PServer = (p2pPort: number) => {
 
 const getSockets = () => sockets;
 
+const connectToPeers = (newPeer: string): void => {
+  const ws: WebSocket = new WebSocket(newPeer);
+  ws.on('open', () => {
+    initConnection(ws);
+  });
+  ws.on('error', () => {
+    console.log('connection failed');
+  });
+};
+
 const initConnection = (ws: WebSocket) => {
   sockets.push(ws);
   initMessageHandler(ws);
@@ -138,16 +148,6 @@ const handleBlockchainResponse = (receivedBlocks: Block[]) => {
 
 const broadcastLatest = (): void => {
   broadcast(responseLatestMsg());
-};
-
-const connectToPeers = (newPeer: string): void => {
-  const ws: WebSocket = new WebSocket(newPeer);
-  ws.on('open', () => {
-    initConnection(ws);
-  });
-  ws.on('error', () => {
-    console.log('connection failed');
-  });
 };
 
 export { connectToPeers, broadcastLatest, initP2PServer, getSockets };

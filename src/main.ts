@@ -1,8 +1,17 @@
 import bodyParser from 'body-parser';
 import express from 'express';
-
+const commandLineArgs = require('command-line-args');
 import { Block, generateNextBlock, getBlockchain } from './blockchain';
 import { connectToPeers, getSockets, initP2PServer } from './p2p';
+
+const optionDefinitions = [
+  { name: 'httpPort', type: Number },
+  { name: 'p2pPort', type: Number },
+  { name: 'initialPeers', type: String, multiple: true },
+];
+
+const options = commandLineArgs(optionDefinitions);
+console.log(options);
 
 const httpPort: number = parseInt(process.env.HTTP_PORT) || 3001;
 const p2pPort: number = parseInt(process.env.P2P_PORT) || 6001;
@@ -30,7 +39,7 @@ const initHttpServer = (myHttpPort: number) => {
   });
 
   app.listen(myHttpPort, () => {
-    console.log('Listening http on port: ' + myHttpPort);
+    console.log('Listening on http port: ' + myHttpPort);
   });
 };
 

@@ -1,20 +1,17 @@
 import * as CryptoJS from 'crypto-js';
 import { broadcastLatest } from './p2p';
+import { hexToBinary } from './utils';
 
 class Block {
-  public index: number;
-  public hash: string;
-  public previousHash: string;
-  public timestamp: number;
-  public data: string;
-
-  constructor(index: number, hash: string, previousHash: string, timestamp: number, data: string) {
-    this.index = index;
-    this.previousHash = previousHash;
-    this.timestamp = timestamp;
-    this.data = data;
-    this.hash = hash;
-  }
+  constructor(
+    public index: number,
+    public hash: string,
+    public previousHash: string,
+    public timestamp: number,
+    public data: string, // Hash of the blocks contents? (Transactions, properties, etc.)
+    public nonce: number,
+    public difficulty: number
+  ) {}
 }
 
 const genesisBlock: Block = new Block(
@@ -22,7 +19,9 @@ const genesisBlock: Block = new Block(
   '816534932c2b7154836da6afc367695e6337db8a921823784c14378abed4f7d7',
   '',
   1465154705,
-  'my genesis block!!'
+  'Genesis Block',
+  0,
+  0
 );
 
 let blockchain: Block[] = [genesisBlock];
@@ -31,32 +30,100 @@ const getBlockchain = (): Block[] => blockchain;
 
 const getLatestBlock = (): Block => blockchain[blockchain.length - 1];
 
+const getCurrentTimestamp = (): number => Math.round(new Date().getTime() / 1000);
+
+// in seconds
+const BLOCK_GENERATION_INTERVAL: number = 10;
+
+// in blocks
+const DIFFICULTY_ADJUSTMENT_INTERVAL: number = 10;
+
+const getDifficulty = (aBlockchain: Block[]): number => {
+  const latestBlock: Block = aBlockchain[blockchain.length - 1];
+  if (latestBlock.index % DIFFICULTY_ADJUSTMENT_INTERVAL === 0 && latestBlock.index !== 0) {
+    return getAdjustedDifficulty(latestBlock, aBlockchain);
+  } else {
+    return latestBlock.difficulty;
+  }
+};
+
+const getAdjustedDifficulty = (latestBlock: Block, aBlockchain: Block[]) => {
+  const prevAdjustmentBlock: Block =
+    aBlockchain[blockchain.length - DIFFICULTY_ADJUSTMENT_INTERVAL];
+  const timeExpected: number = BLOCK_GENERATION_INTERVAL * DIFFICULTY_ADJUSTMENT_INTERVAL;
+  const timeTaken: number = latestBlock.timestamp - prevAdjustmentBlock.timestamp;
+  if (timeTaken < timeExpected / 2) {
+    return prevAdjustmentBlock.difficulty + 1;
+  } else if (timeTaken > timeExpected * 2) {
+    return prevAdjustmentBlock.difficulty - 1;
+  } else {
+    return prevAdjustmentBlock.difficulty;
+  }
+};
+
+// blockData = the generated hash of block mined by miner?
 const generateNextBlock = (blockData: string) => {
   const previousBlock: Block = getLatestBlock();
   const nextIndex: number = previousBlock.index + 1;
-  const nextTimestamp: number = new Date().getTime() / 1000;
-  const nextHash: string = calculateHash(nextIndex, previousBlock.hash, nextTimestamp, blockData);
-  const newBlock: Block = new Block(
+  const difficulty: number = getDifficulty(getBlockchain());
+  console.log('difficulty: ' + difficulty);
+  const nextTimestamp: number = getCurrentTimestamp();
+  const newBlock: Block = findBlock(
     nextIndex,
-    nextHash,
     previousBlock.hash,
     nextTimestamp,
-    blockData
+    blockData,
+    difficulty
   );
   addBlock(newBlock);
   broadcastLatest();
   return newBlock;
 };
 
-const calculateHashForBlock = (block: Block): string =>
-  calculateHash(block.index, block.previousHash, block.timestamp, block.data);
+const findBlock = (
+  index: number,
+  previousHash: string,
+  timestamp: number,
+  data: string,
+  difficulty: number
+): Block => {
+  let nonce = 0;
+  while (true) {
+    const hash: string = calculateHash(index, previousHash, timestamp, data, difficulty, nonce);
+    if (hashMatchesDifficulty(hash, difficulty)) {
+      return new Block(index, hash, previousHash, timestamp, data, difficulty, nonce);
+    }
+    nonce++;
+  }
+};
+
+const hashMatchesDifficulty = (hash: string, difficulty: number): boolean => {
+  const hashInBinary: string = hexToBinary(hash);
+  const requiredPrefix: string = '0'.repeat(difficulty);
+  return hashInBinary.startsWith(requiredPrefix);
+};
+
+const calculateHashForBlock = (block: Block): string => {
+  return calculateHash(
+    block.index,
+    block.previousHash,
+    block.timestamp,
+    block.data,
+    block.difficulty,
+    block.nonce
+  );
+};
 
 const calculateHash = (
   index: number,
   previousHash: string,
   timestamp: number,
-  data: string
-): string => CryptoJS.SHA256(index + previousHash + timestamp + data).toString();
+  data: string,
+  difficulty: number,
+  nonce: number
+): string => {
+  return CryptoJS.SHA256(index + previousHash + timestamp + data + difficulty + nonce).toString();
+};
 
 const addBlock = (newBlock: Block) => {
   if (isValidNewBlock(newBlock, getLatestBlock())) {
